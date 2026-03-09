@@ -37,8 +37,8 @@ void workerThreadStart(WorkerArgs * const args) {
     // program that uses two threads, thread 0 could compute the top
     // half of the image and thread 1 could compute the bottom half.
     
-    int quotient = args->height / args->numThreads;
-    int startRow = args->threadId * quotient;
+    int const quotient = args->height / args->numThreads;
+    int const startRow = args->threadId * quotient;
     // height may not be a multiple of numThreads, in which case the last thread
     // will have more rows than the other threads.
     int numRows;
