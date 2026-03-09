@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <getopt.h>
 
+#include <cstring> // memset
+
 #include "CycleTimer.h"
 
 extern void mandelbrotSerial(
