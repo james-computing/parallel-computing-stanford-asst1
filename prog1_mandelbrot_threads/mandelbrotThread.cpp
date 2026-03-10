@@ -37,21 +37,39 @@ void workerThreadStart(WorkerArgs * const args) {
     // program that uses two threads, thread 0 could compute the top
     // half of the image and thread 1 could compute the bottom half.
     
-    int const quotient = args->height / args->numThreads;
-    int const startRow = args->threadId * quotient;
-    // height may not be a multiple of numThreads, in which case the last thread
-    // will have more rows than the other threads.
-    int numRows;
-    if (args->threadId == args->numThreads-1) {
-        numRows = args->height - startRow;
+    // Divide the rows into numThreads * blockPerThreads blocks.
+    // Then assign the work to the threads as interleaved blocks of rows.
+    // Interleaving  guarantees a more evenly distributed amout of work for each thread.
+    static unsigned int const blocksPerThread {3};
+    static unsigned int const numBlocks {args->numThreads * blocksPerThread};
+    static unsigned int const numberRowsPerBlock {args->height / numBlocks};
+
+    int startRow;
+    if (args->threadId < args->numThreads - 1) {
+        for (unsigned int i {0}; i < blocksPerThread; ++i) {
+            startRow = (args->threadId + i * args->numThreads) * numberRowsPerBlock;
+            mandelbrotSerial(args->x0, args->y0,
+                        args->x1, args->y1,
+                        args->width, args->height,
+                        startRow, numberRowsPerBlock, args->maxIterations, args->output);
+        }
     } else {
-        numRows = quotient;
+        unsigned int i {0};
+        for (; i < blocksPerThread - 1; ++i) {
+            startRow = (args->threadId + i * args->numThreads) * numberRowsPerBlock;
+            mandelbrotSerial(args->x0, args->y0,
+                        args->x1, args->y1,
+                        args->width, args->height,
+                        startRow, numberRowsPerBlock, args->maxIterations, args->output);
+        }
+        // the last block may have more rows, due to non exact division
+        startRow = (args->threadId + i * args->numThreads) * numberRowsPerBlock;
+        int numRowsOfLastBlock = args->height - startRow;
+        mandelbrotSerial(args->x0, args->y0,
+                        args->x1, args->y1,
+                        args->width, args->height,
+                        startRow, numRowsOfLastBlock, args->maxIterations, args->output);
     }
-    
-    mandelbrotSerial(args->x0, args->y0,
-                    args->x1, args->y1,
-                    args->width, args->height,
-                    startRow, numRows, args->maxIterations, args->output);
 }
 
 //
