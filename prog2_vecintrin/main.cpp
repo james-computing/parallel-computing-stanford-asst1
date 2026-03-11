@@ -240,6 +240,56 @@ void clampedExpSerial(float* values, int* exponents, float* output, int N) {
   }
 }
 
+inline void compute_result(
+    __cs149_vec_float & result_vector,
+    float * & values_shifted,
+    int * & exponents_shifted,
+    __cs149_mask & output_mask
+    ) {
+    static __cs149_vec_int zeros = _cs149_vset_int(0);
+    static __cs149_vec_int ones = _cs149_vset_int(1);
+    static float const threshold = 9.999999f;
+    static __cs149_vec_float threshold_vector = _cs149_vset_float(threshold);
+
+    __cs149_vec_float values_vector;
+    __cs149_vec_int exponents_vector;
+    __cs149_vec_int counter_vector; // counter for computing the power
+
+    __cs149_mask mul_mask;
+    __cs149_mask clamp_mask;
+
+    _cs149_vload_float(values_vector, values_shifted, output_mask);
+    _cs149_vload_int(exponents_vector, exponents_shifted, output_mask);
+
+    // Initialize result with 1's. This takes care of the cases where the exponent is 0.
+    // The other cases are taken care in the while loop.
+    result_vector = _cs149_vset_float(1);
+
+    // Make a mask so select the entries for which we'll multiply the values to compute the power.
+    // Initialize with zero where the exponent is 0, and 1 for higher exponents
+    mul_mask = _cs149_init_ones();
+    _cs149_vgt_int(mul_mask, exponents_vector, zeros, mul_mask);
+
+    // Copy the exponents to the counter.
+    // The counter will be decrease in each iteration to compute the power.
+    _cs149_vmove_int(counter_vector, exponents_vector, mul_mask);
+
+    // Compute the powers for the non zero exponents
+    while (_cs149_cntbits(mul_mask) > 0) {
+        // Multiply by the value, to compute the power
+        _cs149_vmult_float(result_vector, result_vector, values_vector, mul_mask);
+        // Decrease counter
+        _cs149_vsub_int(counter_vector, counter_vector, ones, mul_mask);
+        // Update the mask
+        _cs149_vgt_int(mul_mask, counter_vector, zeros, mul_mask);
+    }
+
+    // Clamp result
+    _cs149_vgt_float(clamp_mask, result_vector, threshold_vector, output_mask);
+    _cs149_vmove_float(result_vector, threshold_vector, clamp_mask);
+}
+
+
 void clampedExpVector(float* values, int* exponents, float* output, int N) {
 
   //
@@ -249,7 +299,35 @@ void clampedExpVector(float* values, int* exponents, float* output, int N) {
   // Your solution should work for any value of
   // N and VECTOR_WIDTH, not just when VECTOR_WIDTH divides N
   //
-  
+    float * values_shifted = values;
+    int * exponents_shifted = exponents;
+    //float * output_shifted = output_shifted; // shifting the output didn't work, got segmentation fault
+
+    __cs149_mask output_mask = _cs149_init_ones();
+    __cs149_vec_float result_vector;  // result to be returned
+    
+
+    size_t i {0};
+    for (; i < N/VECTOR_WIDTH; ++i) {
+        compute_result(result_vector, values_shifted, exponents_shifted, output_mask);
+        // store the result in output
+        _cs149_vstore_float(output+i*VECTOR_WIDTH, result_vector, output_mask);
+
+        values_shifted += VECTOR_WIDTH;
+        exponents_shifted += VECTOR_WIDTH;
+    }
+
+    // Handle case where N isn't a multiple of VECTOR_WIDTH.
+    // In this case, a number of powers remains to be computed, but they form a vector of size less than VECTOR_WIDTH.
+    // We can still use vector instructions by masking the last non used entries.
+    int const remainder = N % VECTOR_WIDTH;
+    if (remainder > 0) {
+        output_mask = _cs149_init_ones(remainder);
+        compute_result(result_vector, values_shifted, exponents_shifted, output_mask);
+        
+        // store the result in output
+        _cs149_vstore_float(output+i*VECTOR_WIDTH, result_vector, output_mask);
+    }
 }
 
 // returns the sum of all elements in values
