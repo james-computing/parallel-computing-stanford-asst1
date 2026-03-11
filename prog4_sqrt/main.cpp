@@ -18,6 +18,20 @@ static void verifyResult(int N, float* result, float* gold) {
     }
 }
 
+void values_init_good(float * values, unsigned int i) {
+    // lots of work to do, evenly distributed
+    values[i] = 2.998f;
+}
+
+void values_init_bad(float * values, unsigned int i) {
+    // Badly distributed work
+    if (i % 8 == 0) {
+        values[i] = 2.998f;
+    } else {
+        values[i] = 1;
+    }
+}
+
 int main() {
 
     const unsigned int N = 20 * 1000 * 1000;
@@ -34,7 +48,9 @@ int main() {
         // to you generate best and worse-case speedups
         
         // starter code populates array with random input values
-        values[i] = .001f + 2.998f * static_cast<float>(rand()) / RAND_MAX;
+        //values[i] = .001f + 2.998f * static_cast<float>(rand()) / RAND_MAX;
+        //values_init_good(values, i);
+        values_init_bad(values, i);
     }
 
     // generate a gold version to check results
