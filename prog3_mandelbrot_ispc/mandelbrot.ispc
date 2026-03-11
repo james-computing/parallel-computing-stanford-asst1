@@ -67,13 +67,15 @@ export void mandelbrot_ispc_withtasks(uniform float x0, uniform float y0,
                                       uniform int maxIterations,
                                       uniform int output[])
 {
+    // width = 800 = 2^5 * 5^2
+    // numTasks must divide width, if only this function will be changed.
+    uniform int const numTasks = 5*5; // I'm using a pc that can handle 12 threads. Use at least the double, 24, so the work is more balanced
+    uniform int rowsPerTask = height / numTasks;
 
-    uniform int rowsPerTask = height / 2;
-
-    // create 2 tasks
-    launch[2] mandelbrot_ispc_task(x0, y0, x1, y1,
+    // create tasks
+    launch[numTasks] mandelbrot_ispc_task(x0, y0, x1, y1,
                                      width, height,
                                      rowsPerTask,
                                      maxIterations,
-                                     output); 
+                                     output);
 }
